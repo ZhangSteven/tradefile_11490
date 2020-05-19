@@ -16,8 +16,10 @@ Check the 'samples' directory for samples of the input and two output files.
 
 from tradefile_11490.trade import getDatenPositions
 from clamc_datafeed.feeder import fileToLines, mergeDictionary
+from utils.file import getFiles
 from utils.utility import writeCsv
 from toolz.functoolz import compose
+from functools import partial
 from itertools import chain
 from datetime import datetime
 from os.path import join, dirname, abspath
@@ -94,9 +96,9 @@ def writeTrusteeTradeFile(outputDir, date, positions):
 
 
 	return writeCsv( getOutputFileName(date, outputDir)
-	  			   , getOutputRows(date, positions)
-	  			   , delimiter=','
-	  			   )
+				   , getOutputRows(date, positions)
+				   , delimiter=','
+				   )
 
 
 
@@ -113,14 +115,56 @@ def writeAccumulateTradeFile(outputDir, date, positions):
 	Here we assume that accumulated trade files of previous days are also located
 	on the outputDir.
 	"""
-	previousFile = readNearestAccumulateFile(outputDir)
+	getOutputFileName = lambda date, outputDir: \
+		join( outputDir
+			, 'Equities_' + datetime.strftime(datetime.strptime(date, '%Y-%m-%d'), '%d%m%Y') + '.csv'
+			)
 
-	mergedPositions = mergePositions(previousFile, positions)
 
-	return writeCsv( getOutputFileName(date, outputDir)
-				   , mergedPositions
-				   , delimiter=','
-				   )
+	return compose(
+		lambda positions: writeCsv( getOutputFileName(date, outputDir)
+								  , positions
+								  , delimiter=','
+								  )
+	  , lambda fn: mergePositionsToAccumulateTradeFile(previousFile, positions)
+	  , lambda outputDir, date, _: getNearestAccumulateFile(outputDir, date)
+	)(outputDir, date, positions)
+
+
+
+def getNearestAccumulateFile(outputDir, date):
+	"""
+	[String] outputDir,
+	[String] date (yyyy-mm-dd)
+		=> [String] file
+
+	Search for all files in the output dir, then:
+
+	1) Find all files that begins with 'Equities' (accumulate trade files)
+	2) Take out those whose date is equal or equal to the date
+	3) Sort the remaining files by date, find the file with the latest date.
+	4) Return the file name with full path.
+	"""
+	# [String] fn => [String] date (yyyy-mm-dd)
+	getDateFromFilename = compose(
+		lambda s: datetime.strftime(datetime.strptime(s, '%d%m%Y'), '%Y-%m-%d')
+	  , lambda s: s.split('_')[-1].strip()
+	  , lambda fn: fn.split('.')[0]
+	)
+
+	isAccumulateTradeFile = lambda fn: fn.startswith('Equities_') and fn.endswith('.csv')
+
+	fileOfLatestDate = lambda filesWithDate: max(filesWithDate, key=lambda t: t[0])[1]
+
+
+	return compose(
+		lambda fn: join(outputDir, fn)
+	  , fileOfLatestDate
+	  , partial(filter, lambda t: t[0] < date)
+	  , partial(map, lambda fn: (getDateFromFilename(fn), fn))
+	  , partial(filter, isAccumulateTradeFile)
+	  , lambda outputDir, _: getFiles(outputDir)
+	)(outputDir, date)
 
 
 
@@ -154,6 +198,18 @@ def mergePositionsToAccumulateTradeFile(file, positions):
 					, map(positionToValues, map(toNewPostion, positions))
 					)
 
+
+
+def convertAccumulateExcelToCSV(file):
+	"""
+	[String] file => [String] file
+
+	Read an accmulative trade excel file, write it as csv. We need to make sure:
+
+	1) Apply double quote to all strings;
+	2) Make sure dates as yyyy-mm-dd
+	"""
+	return 0
 
 
 

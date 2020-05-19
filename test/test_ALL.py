@@ -5,7 +5,8 @@ import unittest2
 from os.path import join
 from utils.iter import firstOf
 from tradefile_11490.trade import getDatenPositions
-from tradefile_11490.main import getCurrentDirectory, readDatenPositions
+from tradefile_11490.main import getCurrentDirectory, readDatenPositions \
+								, getNearestAccumulateFile
 
 
 
@@ -23,6 +24,13 @@ class TestAll(unittest2.TestCase):
 		positions = list(positions)
 		self.assertEqual(5, len(positions))
 		self.verifyPosition(positions[0])
+
+
+
+	def testGetNearestAccumulateFile(self):
+		outputDir = join(getCurrentDirectory(), 'samples')
+		self.assertEqual( join(outputDir, 'Equities_13052020.csv')
+						, getNearestAccumulateFile(outputDir, '2020-05-15'))
 
 
 
