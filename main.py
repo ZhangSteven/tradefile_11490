@@ -21,7 +21,7 @@ from toolz.functoolz import compose
 from itertools import chain
 from datetime import datetime
 from os.path import join, dirname, abspath
-import logging
+import logging, csv
 logger = logging.getLogger(__name__)
 
 
@@ -51,11 +51,15 @@ getCurrentDirectory = lambda: dirname(abspath(__file__))
 
 
 
-def writeTrusteeTradeFile(file, outputDir):
+def writeTrusteeTradeFile(outputDir, date, positions):
 	"""
-	[String] file => [String] csv file
+	[String] outputDir (the directory to write the csv file)
+	[String] date (yyyy-mm-dd)
+	[Iterator] positions (the positions from the trade file) 
+		=> [String] csv file
 
-	Read the Bloomberg AIM trade file, write the CL trustee trade file
+	From the date and positions of the Bloomberg AIM trade file, write the CL 
+	trustee trade file.
 	"""
 	updatePosition = lambda p: \
 		mergeDictionary(p, {'Broker Long Name': p['FACC Long Name']})
@@ -89,13 +93,67 @@ def writeTrusteeTradeFile(file, outputDir):
 			 )
 
 
-	return compose(
-		lambda t: writeCsv( getOutputFileName(t[0], outputDir)
-	  					  , getOutputRows(t[0], t[1])
-	  					  , delimiter=','
-	  					  )
-	  , lambda file, _: readDatenPositions(file)
-	)(file, outputDir)
+	return writeCsv( getOutputFileName(date, outputDir)
+	  			   , getOutputRows(date, positions)
+	  			   , delimiter=','
+	  			   )
+
+
+
+def writeAccumulateTradeFile(outputDir, date, positions):
+	"""
+	[String] outputDir (the directory to write the csv file)
+	[String] date (yyyy-mm-dd)
+	[Iterator] positions (the positions from the trade file) 
+		=> [String] csv file
+
+	From the date and positions of the Bloomberg AIM trade file, write the
+	accumulated trade file.
+
+	Here we assume that accumulated trade files of previous days are also located
+	on the outputDir.
+	"""
+	previousFile = readNearestAccumulateFile(outputDir)
+
+	mergedPositions = mergePositions(previousFile, positions)
+
+	return writeCsv( getOutputFileName(date, outputDir)
+				   , mergedPositions
+				   , delimiter=','
+				   )
+
+
+
+def mergePositionsToAccumulateTradeFile(file, positions):
+	"""
+	[String] file, [Iterator] positions
+		=> [Iterator] rows
+
+	read the accumulate trade csv file, append the positions from the AIM trade 
+	file to form the rows of the new accumulate trade csv file
+	"""
+	headers = [ 'FundName', '', 'Security Code', 'Shrt Name', 'Amount Pennies'
+			  , 'BuySell', 'FACC Long Name', 'As of Dt', 'Stl Date', 'Price']
+
+	positionToValues = lambda position: map(lambda key: position[key], headers)
+
+
+	toNewPostion = lambda position: \
+		mergeDictionary( position
+					   , { 'FundName': 'CLT-CLI HK BR (CLASS A-HK) Trust Fund'
+					   	 , '': ''
+					   	 , 'Security Code': position['Ticker & Exc'].split()[0]
+					   	 , 'BuySell': 'Buy' if position['B/S'] == 'B' else 'Sell'
+					   	 }
+					   )
+
+
+	with open(file, newline='') as csvfile:
+		csvreader = csv.reader(csvfile, delimiter=',')
+		return chain( [row for row in csvreader]
+					, map(positionToValues, map(toNewPostion, positions))
+					)
+
 
 
 
@@ -118,4 +176,17 @@ if __name__ == '__main__':
 	#   , fileToLines
 	# )(file)
 
-	writeTrusteeTradeFile(file, '')
+	# compose(
+	# 	lambda t: writeTrusteeTradeFile('', t[0], t[1])
+	#   , readDatenPositions
+	# )(file)
+
+	date, positions = readDatenPositions('samples/11490_1.xlsx')
+	writeCsv( 'hello.csv'
+			, mergePositionsToAccumulateTradeFile( 'Order Record of A-HK Equity 200515.csv'
+												 , positions)
+			, delimiter=','
+			)
+
+
+
