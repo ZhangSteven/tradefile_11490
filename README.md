@@ -5,4 +5,4 @@ Settlement team downloads a trade file from Bloomberg AIM daily, then they perfo
 2. Add these trades to an accumulated trade file.
 
 ## Caution
-When the conversion program run multiple times on the same 11490 daily trade file (the input), it should not accumulate multiple times on the accmulated trade file.
+When the conversion program run multiple times on the same 11490 daily trade file (the input), it should modify the accmulated trade file only once.
