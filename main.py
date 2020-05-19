@@ -16,11 +16,12 @@ Check the 'samples' directory for samples of the input and two output files.
 
 from tradefile_11490.trade import getDatenPositions
 from clamc_datafeed.feeder import fileToLines, mergeDictionary
+from utils.iter import pop
 from utils.file import getFiles
 from utils.utility import writeCsv
 from toolz.functoolz import compose
 from functools import partial
-from itertools import chain
+from itertools import chain, count, takewhile
 from datetime import datetime
 from os.path import join, dirname, abspath
 import logging, csv
@@ -205,11 +206,58 @@ def convertAccumulateExcelToCSV(file):
 	[String] file => [String] file
 
 	Read an accmulative trade excel file, write it as csv. We need to make sure:
+	make sure dates as yyyy-mm-dd, so that it's consistent with a daily addon
+	from the bloomberg aim trade file.
 
-	1) Apply double quote to all strings;
-	2) Make sure dates as yyyy-mm-dd
+	The csv file name is the same as the excel file, except that its file
+	extension is '.csv' instead of '.xlsx'
+
+	This is an utility function that needs to run only once, to convert the 
+	excel version accmulate trade file into csv format. After that, we just
+	need to add daily trades to that csv file.
 	"""
-	return 0
+	getOutputFileName = lambda fn: \
+		fn[0:-4] + 'csv' if fn.endswith('.xlsx') else \
+		fn[0:-3] + 'csv' if fn.endswith('.xls') else \
+		lognRaise('convertAccumulateExcelToCSV(): invalid input file {0}'.format(fn))
+	
+
+	"""
+		[List] line => [List] headers
+		Note the second header is an empty string, but we need to keep it. All
+		other empty strings in the list are ignored
+	"""
+	getHeaders = compose(
+		list
+	  , partial(map, lambda t: t[1])
+	  , partial(takewhile, lambda t: t[0] < 2 or t[1] != '')
+	  , lambda line: zip(count(), line)
+	)
+
+
+	getLineItems = lambda headers, line: \
+		map(lambda t: t[1], zip(headers, line))
+
+
+	return compose(
+		lambda rows: writeCsv( getOutputFileName(file)
+							 , rows
+							 , delimiter=','
+							 )
+	  , lambda t: chain( [t[0]]
+	  				   , map(partial(getLineItems, t[0]), t[1])
+	  				   )
+	  , lambda lines: (getHeaders(pop(lines)), lines)
+	  , fileToLines
+	)(file)
+
+
+
+
+def lognRaise(msg):
+	logger.error(msg)
+	raise ValueError
+
 
 
 
@@ -217,7 +265,7 @@ if __name__ == '__main__':
 	import logging.config
 	logging.config.fileConfig('logging.config', disable_existing_loggers=False)
 
-	file = join(getCurrentDirectory(), 'samples', '11490_1.xlsx')
+	# file = join(getCurrentDirectory(), 'samples', '11490_1.xlsx')
 
 	# def showList(L):
 	# 	for x in L:
@@ -237,12 +285,13 @@ if __name__ == '__main__':
 	#   , readDatenPositions
 	# )(file)
 
-	date, positions = readDatenPositions('samples/11490_1.xlsx')
-	writeCsv( 'hello.csv'
-			, mergePositionsToAccumulateTradeFile( 'Order Record of A-HK Equity 200515.csv'
-												 , positions)
-			, delimiter=','
-			)
+	# date, positions = readDatenPositions('samples/11490_1.xlsx')
+	# writeCsv( 'hello.csv'
+	# 		, mergePositionsToAccumulateTradeFile( 'Order Record of A-HK Equity 200515.csv'
+	# 											 , positions)
+	# 		, delimiter=','
+	# 		)
 
 
-
+	file = join(getCurrentDirectory(), 'samples', 'Equities_15052020.xlsx')
+	print(convertAccumulateExcelToCSV(file))
