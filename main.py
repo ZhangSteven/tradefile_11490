@@ -15,6 +15,13 @@ logger = logging.getLogger(__name__)
 
 
 
+readDatenPositions = compose(
+	getDatenPositions
+  , fileToLines
+)
+
+
+
 """
 	Get the absolute path to the directory where this module is in.
 
@@ -37,7 +44,7 @@ if __name__ == '__main__':
 			print(x)
 
 		return 0
-		
+
 
 	compose(
 		lambda t: showList(t[1])
