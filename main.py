@@ -15,6 +15,7 @@ Check the 'samples' directory for samples of the input and two output files.
 """
 
 from tradefile_11490.trade import getDatenPositions
+from tradefile_11490.utility import getOutputDirectory
 from clamc_datafeed.feeder import fileToLines, mergeDictionary
 from utils.iter import pop
 from utils.file import getFiles
@@ -24,9 +25,8 @@ from toolz.functoolz import compose
 from functools import partial
 from itertools import chain, count, takewhile
 from datetime import datetime
-from shutil import copyfile
 from os.path import join, dirname, abspath
-import logging, csv
+import logging, csv, shutil
 logger = logging.getLogger(__name__)
 
 
@@ -45,17 +45,6 @@ readDatenPositions = compose(
 
 
 
-"""
-	Get the absolute path to the directory where this module is in.
-
-	This piece of code comes from:
-
-	http://stackoverflow.com/questions/3430372/how-to-get-full-path-of-current-files-directory-in-python
-"""
-getCurrentDirectory = lambda: dirname(abspath(__file__))
-
-
-
 def writeTradenAccumulateFiles(inputFile, outputDir):
 	"""
 	[String] inputFile (11490 AIM trade file)
@@ -68,6 +57,8 @@ def writeTradenAccumulateFiles(inputFile, outputDir):
 	and don't move. Because when producing the accumulate trade file for the
 	current day, we need accumulate trade files of previous days.
 	"""
+	logger.debug('writeTradenAccumulateFiles(): {0}'.format(inputFile))
+
 	return compose(
 		lambda t: ( writeTrusteeTradeFile(outputDir, t[0], t[1])
 				  , writeAccumulateTradeFile(outputDir, t[0], t[1])
@@ -144,9 +135,9 @@ def writeAccumulateTradeFile(outputDir, date, positions):
 					 , 'Equities_' + datetime.strftime(datetime.strptime(date, '%Y-%m-%d'), '%d%m%Y') + '.csv'
 					 )
 
-	copyfile( getNearestAccumulateFile(outputDir, date)
-			, outputFile
-			)
+	shutil.copyfile( getNearestAccumulateFile(outputDir, date)
+				   , outputFile
+				   )
 
 
 	toNewPostion = lambda position: mergeDictionary( 
@@ -285,6 +276,59 @@ def convertAccumulateExcelToCSV(file):
 
 
 
+def getTradeFilesFromDirectory(inputDir):
+	"""
+		[String] inputDir => [List] trade files in that directory (without path)
+	"""
+	isTradeFile = lambda fn: fn.startswith('11490') and \
+								(fn.endswith('xls') or fn.endswith('xlsx'))
+
+	return compose(
+		list
+	  , partial(filter, isTradeFile)
+	  , getFiles
+	)(inputDir)
+
+
+
+def getInputTradeFile(inputDir):
+	"""
+	[String] inputDir => [String] input file
+
+	Search for the input trade file in the input directory. There should be one
+	and only one file with the name starting with "11490" and ends with ".xls" or
+	".xlsx". That is the trade file we are looking for.
+	"""
+	return compose(
+		lambda fn: join(inputDir, fn)
+	  , lambda files: lognRaise('getInputFile(): too many trade files') \
+	  					if len(files) > 1 else \
+	  					lognRaise('getInputFile(): no trade file found') \
+	  					if len(files) == 0 else files[0]
+
+	  , getTradeFilesFromDirectory
+	)(inputDir)
+
+
+
+def moveTradeFiles(inputDir):
+	"""
+	[String] inputDir => [Int] 0 if successful -1 otherwise
+
+	Move all the trade files in the input directory to its subdirectory
+	'processed files'
+	"""
+	try:
+		for file in getTradeFilesFromDirectory(inputDir):
+			shutil.move( join(inputDir, file)
+					   , join(inputDir, 'processed files'))
+
+		return 0
+
+	except:
+		return -1
+
+
 
 def lognRaise(msg):
 	logger.error(msg)
@@ -297,13 +341,15 @@ if __name__ == '__main__':
 	import logging.config
 	logging.config.fileConfig('logging.config', disable_existing_loggers=False)
 
-	file = join(getCurrentDirectory(), 'samples', '11490_1_20200519.xls')
-	outputDir = join(getCurrentDirectory(), 'samples')
 	try:
-		print(writeTradenAccumulateFiles(file, outputDir))
+		writeTradenAccumulateFiles( getInputTradeFile(getOutputDirectory())
+								  , getOutputDirectory())
 	except:
-		logger.exception()
+		logger.exception('__main__')
+
+	finally:
+		moveTradeFiles(getOutputDirectory())
 
 	# Convert an accumulate excel trade file to csv
-	# file = join(getCurrentDirectory(), 'samples', 'Equities_13052020.xlsx')
+	# file = join(getOutputDirectory(), 'Equities_13052020.xlsx')
 	# print(convertAccumulateExcelToCSV(file))

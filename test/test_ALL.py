@@ -5,8 +5,8 @@ import unittest2
 from os.path import join
 from utils.iter import firstOf
 from tradefile_11490.trade import getDatenPositions
-from tradefile_11490.main import getCurrentDirectory, readDatenPositions \
-								, getNearestAccumulateFile
+from tradefile_11490.utility import getCurrentDirectory
+from tradefile_11490.main import readDatenPositions, getNearestAccumulateFile
 
 
 
