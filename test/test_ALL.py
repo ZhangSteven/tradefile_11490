@@ -18,7 +18,7 @@ class TestAll(unittest2.TestCase):
 
 
 	def testGetDatenPositions(self):
-		file = join(getCurrentDirectory(), 'samples', '11490_1.xlsx')
+		file = join(getCurrentDirectory(), 'samples', '11490_1_20200515.xlsx')
 		date, positions = readDatenPositions(file)
 		self.assertEqual('2020-05-15', date)
 		positions = list(positions)
