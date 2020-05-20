@@ -43,3 +43,27 @@ if not 'config' in globals():
 def getOutputDirectory():
 	global config
 	return config['directory']['output']
+
+
+
+def getMailSender():
+	global config
+	return config['email']['sender']
+
+
+
+def getMailRecipients():
+	global config
+	return config['email']['recipents']
+
+
+
+def getMailServer():
+	global config
+	return config['email']['server']
+
+
+
+def getMailTimeout():
+	global config
+	return float(config['email']['timeout'])

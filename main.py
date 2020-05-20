@@ -15,12 +15,13 @@ Check the 'samples' directory for samples of the input and two output files.
 """
 
 from tradefile_11490.trade import getDatenPositions
-from tradefile_11490.utility import getOutputDirectory
+from tradefile_11490.utility import getOutputDirectory, getMailSender, getMailServer \
+									, getMailRecipients, getMailTimeout
 from clamc_datafeed.feeder import fileToLines, mergeDictionary
 from utils.iter import pop
 from utils.file import getFiles
-from utils.utility import fromExcelOrdinal
-from utils.utility import writeCsv
+from utils.utility import fromExcelOrdinal, writeCsv
+from utils.mail import sendMail
 from toolz.functoolz import compose
 from functools import partial
 from itertools import chain, count, takewhile
@@ -330,6 +331,22 @@ def moveTradeFiles(inputDir):
 
 
 
+def sendNotification(subject):
+	"""
+	input: [String] result (file name)
+	
+	side effect: send notification email to recipients about the results.
+	"""
+	try:
+		sendMail( '', subject, getMailSender(), getMailRecipients()
+				, getMailServer(), getMailTimeout()
+				)
+
+	except:
+		logger.exception('sendNotification()')
+		
+
+
 def lognRaise(msg):
 	logger.error(msg)
 	raise ValueError
@@ -341,15 +358,20 @@ if __name__ == '__main__':
 	import logging.config
 	logging.config.fileConfig('logging.config', disable_existing_loggers=False)
 
+	inputFile = None
 	try:
-		writeTradenAccumulateFiles( getInputTradeFile(getOutputDirectory())
-								  , getOutputDirectory())
+		inputFile = getInputTradeFile(getOutputDirectory())
+		writeTradenAccumulateFiles(inputFile, getOutputDirectory())
+		sendNotification('Successfully performed CL trustee trade conversion')
+
 	except:
 		logger.exception('__main__')
+		if inputFile != None:
+			sendNotification('Error occurred in performing CL trustee trade conversion')
 
 	finally:
 		moveTradeFiles(getOutputDirectory())
 
 	# Convert an accumulate excel trade file to csv
-	# file = join(getOutputDirectory(), 'Equities_13052020.xlsx')
+	# file = join(getOutputDirectory(), 'Equities_19052020.xlsx')
 	# print(convertAccumulateExcelToCSV(file))
