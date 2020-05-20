@@ -18,11 +18,13 @@ from tradefile_11490.trade import getDatenPositions
 from clamc_datafeed.feeder import fileToLines, mergeDictionary
 from utils.iter import pop
 from utils.file import getFiles
+from utils.utility import fromExcelOrdinal
 from utils.utility import writeCsv
 from toolz.functoolz import compose
 from functools import partial
 from itertools import chain, count, takewhile
 from datetime import datetime
+from shutil import copyfile
 from os.path import join, dirname, abspath
 import logging, csv
 logger = logging.getLogger(__name__)
@@ -116,20 +118,45 @@ def writeAccumulateTradeFile(outputDir, date, positions):
 	Here we assume that accumulated trade files of previous days are also located
 	on the outputDir.
 	"""
-	getOutputFileName = lambda date, outputDir: \
-		join( outputDir
-			, 'Equities_' + datetime.strftime(datetime.strptime(date, '%Y-%m-%d'), '%d%m%Y') + '.csv'
+	outputFile = join( outputDir
+					 , 'Equities_' + datetime.strftime(datetime.strptime(date, '%Y-%m-%d'), '%d%m%Y') + '.csv'
+					 )
+
+	copyfile( getNearestAccumulateFile(outputDir, date)
+			, outputFile
 			)
 
 
-	return compose(
-		lambda positions: writeCsv( getOutputFileName(date, outputDir)
-								  , positions
-								  , delimiter=','
-								  )
-	  , lambda fn: mergePositionsToAccumulateTradeFile(previousFile, positions)
-	  , lambda outputDir, date, _: getNearestAccumulateFile(outputDir, date)
-	)(outputDir, date, positions)
+	toNewPostion = lambda position: mergeDictionary( 
+		position
+	  , { 'FundName': 'CLT-CLI HK BR (CLASS A-HK) Trust Fund' \
+	  					if position['Fund'].startswith('11490') else \
+	  					lognRaise('toNewPostion(): invalid fund name {0}'.format(position['Fund']))
+		, '': ''
+		, 'BuySell': 'Buy' if position['B/S'] == 'B' else 'Sell'
+		}
+	)
+
+
+	headers = [ 'FundName', '', 'Ticker & Exc', 'Shrt Name', 'Amount Pennies'
+			  , 'BuySell', 'FACC Long Name', 'As of Dt', 'Stl Date', 'Price']
+
+	positionToValues = lambda position: map(lambda key: position[key], headers)
+
+
+	# [Iterator] positions => [String] output string to be written to the file
+	toOutputString = compose(
+		lambda rows: '\n'.join(rows)
+	  , partial(map, lambda values: ','.join(values))
+	  , partial(map, lambda values: map(str, values))
+	  , partial(map, positionToValues)
+	  , partial(map, toNewPostion) 
+	)
+
+
+	with open(outputFile, 'a') as newFile:
+		newFile.write(toOutputString(positions))
+		return 0
 
 
 
@@ -169,35 +196,39 @@ def getNearestAccumulateFile(outputDir, date):
 
 
 
-def mergePositionsToAccumulateTradeFile(file, positions):
-	"""
-	[String] file, [Iterator] positions
-		=> [Iterator] rows
+# def mergePositionsToAccumulateTradeFile(file, positions):
+# 	"""
+# 	[String] file, [Iterator] positions
+# 		=> [Iterator] rows
 
-	read the accumulate trade csv file, append the positions from the AIM trade 
-	file to form the rows of the new accumulate trade csv file
-	"""
-	headers = [ 'FundName', '', 'Security Code', 'Shrt Name', 'Amount Pennies'
-			  , 'BuySell', 'FACC Long Name', 'As of Dt', 'Stl Date', 'Price']
+# 	read the accumulate trade csv file, append the positions from the AIM trade 
+# 	file to form the rows of the new accumulate trade csv file
+# 	"""
+# 	logger.debug('mergePositionsToAccumulateTradeFile(): {0}'.format(file))
 
-	positionToValues = lambda position: map(lambda key: position[key], headers)
+# 	headers = [ 'FundName', '', 'Security Code', 'Shrt Name', 'Amount Pennies'
+# 			  , 'BuySell', 'FACC Long Name', 'As of Dt', 'Stl Date', 'Price']
 
-
-	toNewPostion = lambda position: \
-		mergeDictionary( position
-					   , { 'FundName': 'CLT-CLI HK BR (CLASS A-HK) Trust Fund'
-					   	 , '': ''
-					   	 , 'Security Code': position['Ticker & Exc'].split()[0]
-					   	 , 'BuySell': 'Buy' if position['B/S'] == 'B' else 'Sell'
-					   	 }
-					   )
+# 	positionToValues = lambda position: map(lambda key: position[key], headers)
 
 
-	with open(file, newline='') as csvfile:
-		csvreader = csv.reader(csvfile, delimiter=',')
-		return chain( [row for row in csvreader]
-					, map(positionToValues, map(toNewPostion, positions))
-					)
+# 	toNewPostion = lambda position: mergeDictionary( 
+# 		position
+# 	  , { 'FundName': 'CLT-CLI HK BR (CLASS A-HK) Trust Fund' \
+# 	  					if position['Fund'].startswith('11490') else \
+# 	  					lognRaise('toNewPostion(): invalid fund name {0}'.format(position['Fund']))
+# 		, '': ''
+# 		, 'Security Code': position['Ticker & Exc'].split()[0]
+# 		, 'BuySell': 'Buy' if position['B/S'] == 'B' else 'Sell'
+# 		}
+# 	)
+
+
+# 	with open(file, newline='') as csvfile:
+# 		csvreader = csv.reader(csvfile, delimiter=',')
+# 		return chain( [row for row in csvreader]
+# 					, map(positionToValues, map(toNewPostion, positions))
+# 					)
 
 
 
@@ -235,8 +266,23 @@ def convertAccumulateExcelToCSV(file):
 	)
 
 
-	getLineItems = lambda headers, line: \
-		map(lambda t: t[1], zip(headers, line))
+	def toDatetimeString(value):
+		if isinstance(value, float):
+			return datetime.strftime(fromExcelOrdinal(value), '%Y-%m-%d')
+		else:
+			try:
+				return datetime.strftime(datetime.strptime(value, '%m/%d/%Y'), '%Y-%m-%d')
+			except ValueError:
+				return datetime.strftime(datetime.strptime(value, '%d/%m/%Y'), '%Y-%m-%d')
+
+
+	getLineItems = lambda headers, line: compose(
+		partial( map
+			   , lambda t: toDatetimeString(t[1]) \
+			   		if t[0] in ['Trade Date', 'Settlement Date'] else t[1]
+			   )
+	  , lambda headers, line: zip(headers, line)
+	)(headers, line)
 
 
 	return compose(
@@ -265,33 +311,17 @@ if __name__ == '__main__':
 	import logging.config
 	logging.config.fileConfig('logging.config', disable_existing_loggers=False)
 
-	# file = join(getCurrentDirectory(), 'samples', '11490_1.xlsx')
-
-	# def showList(L):
-	# 	for x in L:
-	# 		print(x)
-
-	# 	return 0
-
-
-	# compose(
-	# 	lambda t: showList(t[1])
-	#   , getDatenPositions
-	#   , fileToLines
-	# )(file)
+	file = join(getCurrentDirectory(), 'samples', '11490_1_20200519.xls')
 
 	# compose(
 	# 	lambda t: writeTrusteeTradeFile('', t[0], t[1])
 	#   , readDatenPositions
 	# )(file)
 
-	# date, positions = readDatenPositions('samples/11490_1.xlsx')
-	# writeCsv( 'hello.csv'
-	# 		, mergePositionsToAccumulateTradeFile( 'Order Record of A-HK Equity 200515.csv'
-	# 											 , positions)
-	# 		, delimiter=','
-	# 		)
+	date, positions = readDatenPositions(file)
+	outputDir = join(getCurrentDirectory(), 'samples')
+	print(writeAccumulateTradeFile(outputDir, date, positions))
 
-
-	file = join(getCurrentDirectory(), 'samples', 'Equities_15052020.xlsx')
-	print(convertAccumulateExcelToCSV(file))
+	# Convert an accumulate excel trade file to csv
+	# file = join(getCurrentDirectory(), 'samples', 'Equities_15052020.xlsx')
+	# print(convertAccumulateExcelToCSV(file))
