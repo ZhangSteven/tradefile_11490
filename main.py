@@ -27,7 +27,7 @@ from functools import partial
 from itertools import chain, count, takewhile
 from datetime import datetime
 from os.path import join, dirname, abspath
-import logging, csv, shutil
+import logging, csv, shutil, sys
 logger = logging.getLogger(__name__)
 
 
@@ -292,23 +292,23 @@ def getTradeFilesFromDirectory(inputDir):
 
 
 
-def getInputTradeFile(inputDir):
-	"""
-	[String] inputDir => [String] input file
+# def getInputTradeFile(inputDir):
+# 	"""
+# 	[String] inputDir => [String] input file
 
-	Search for the input trade file in the input directory. There should be one
-	and only one file with the name starting with "11490" and ends with ".xls" or
-	".xlsx". That is the trade file we are looking for.
-	"""
-	return compose(
-		lambda fn: join(inputDir, fn)
-	  , lambda files: lognRaise('getInputFile(): too many trade files') \
-	  					if len(files) > 1 else \
-	  					lognRaise('getInputFile(): no trade file found') \
-	  					if len(files) == 0 else files[0]
+# 	Search for the input trade file in the input directory. There should be one
+# 	and only one file with the name starting with "11490" and ends with ".xls" or
+# 	".xlsx". That is the trade file we are looking for.
+# 	"""
+# 	return compose(
+# 		lambda fn: join(inputDir, fn)
+# 	  , lambda files: lognRaise('getInputFile(): too many trade files') \
+# 	  					if len(files) > 1 else \
+# 	  					lognRaise('getInputFile(): no trade file found') \
+# 	  					if len(files) == 0 else files[0]
 
-	  , getTradeFilesFromDirectory
-	)(inputDir)
+# 	  , getTradeFilesFromDirectory
+# 	)(inputDir)
 
 
 
@@ -358,16 +358,25 @@ if __name__ == '__main__':
 	import logging.config
 	logging.config.fileConfig('logging.config', disable_existing_loggers=False)
 
-	inputFile = None
+	inputFiles = getTradeFilesFromDirectory(getOutputDirectory())
+	if inputFiles == []:
+		logger.debug('__main__: No input trade file found')
+		sys.exit(0)
+
+
+	if len(inputFiles) > 1:
+		logger.error('__main__: Too many input trade files found')
+		sys.exit(1)
+
+
 	try:
-		inputFile = getInputTradeFile(getOutputDirectory())
-		writeTradenAccumulateFiles(inputFile, getOutputDirectory())
+		writeTradenAccumulateFiles( join(getOutputDirectory(), inputFiles[0])
+								  , getOutputDirectory())
 		sendNotification('Successfully performed CL trustee trade conversion')
 
 	except:
 		logger.exception('__main__')
-		if inputFile != None:
-			sendNotification('Error occurred in performing CL trustee trade conversion')
+		sendNotification('Error occurred in performing CL trustee trade conversion')
 
 	finally:
 		moveTradeFiles(getOutputDirectory())
