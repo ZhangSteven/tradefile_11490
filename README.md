@@ -1,16 +1,12 @@
 # tradefile_11490
-Read a trade file from Bloomberg (AIM THRP report), then perform 2 tasks:
+Read a trade file from Bloomberg (AIM THRP report), do the following:
 
-1. Convert this trade file to China Life trustee format;
-2. Create an accumulated trade file that include all trades since year 2015, including the trades in this trade file.
+1. Produce a trade file in China Life trustee format;
+2. Produce an accumulated trade file.
 
-
-## To do
-1. For 11490-B, if the type of trade is "AFS", convert to "Trading" in the output CL trustee trade file.
 
 
 ## Ver 1.0
-- Output trade file and accumulated trade file are both of type csv.
+- Output trade file and accumulated trade file are both of type csv. You need to save as Excel if necessary.
 
-- There is no database involved, the accumulated trade file is built by adding today's trades to the nearest accumulated trade file in the output directory.
-
+- For 11490-B, if a trade is of type "AFS", then its type will be converted to "Trading" in the CL trustee trade file.

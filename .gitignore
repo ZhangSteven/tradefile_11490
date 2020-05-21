@@ -6,3 +6,11 @@ test/__pycache__/
 # ignore the log file
 logs/
 
+
+# ignore the testing input directory
+InputDir/
+
+
+# ignore the config file (production config and testing config different)
+tradefile_11490.config
+

@@ -24,6 +24,7 @@ class TestAll(unittest2.TestCase):
 		positions = list(positions)
 		self.assertEqual(5, len(positions))
 		self.verifyPosition(positions[0])
+		self.verifyPosition2(positions[1])
 
 
 
@@ -44,3 +45,18 @@ class TestAll(unittest2.TestCase):
 		self.assertEqual(167000, p['Amount Pennies'])
 		self.assertAlmostEqual(26.3641, p['Price'])
 		self.assertAlmostEqual(4416352.33, p['Settle Amount'])
+		self.assertEqual('Trading', p['L1 Tag Nm'])
+
+
+
+	def verifyPosition2(self, p):
+		self.assertEqual('11490-D', p['Fund'])
+		self.assertEqual('941 HK', p['Ticker & Exc'])
+		self.assertEqual('HK0941009539', p['ISIN'])
+		self.assertEqual('B', p['B/S'])
+		self.assertEqual('2020-05-15', p['As of Dt'])
+		self.assertEqual('2020-05-19', p['Stl Date'])
+		self.assertEqual(250500, p['Amount Pennies'])
+		self.assertAlmostEqual(56.8313, p['Price'])
+		self.assertAlmostEqual(14270080.95, p['Settle Amount'])
+		self.assertEqual('AFS', p['L1 Tag Nm'])

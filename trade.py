@@ -89,6 +89,8 @@ updatePosition = lambda p: \
 											 		, '%Y-%m-%d')
 				   	 , 'Stl Date': datetime.strftime( fromExcelOrdinal(p['Stl Date'])
 											 		, '%Y-%m-%d')
+				   	 , 'L1 Tag Nm': 'Trading' if p['L1 Tag Nm'] == 'AFS' and p['Fund'] == '11490-B' \
+				   	 				else p['L1 Tag Nm']
 				   	 }
 				   )
 
