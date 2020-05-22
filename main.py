@@ -187,6 +187,8 @@ def getNearestAccumulateFile(outputDir, date):
 	3) Sort the remaining files by date, find the file with the latest date.
 	4) Return the file name with full path.
 	"""
+	logger.debug('getNearestAccumulateFile(): start')
+
 	# [String] fn => [String] date (yyyy-mm-dd)
 	getDateFromFilename = compose(
 		lambda s: datetime.strftime(datetime.strptime(s, '%d%m%Y'), '%Y-%m-%d')
@@ -201,6 +203,7 @@ def getNearestAccumulateFile(outputDir, date):
 
 	return compose(
 		lambda fn: join(outputDir, fn)
+	  , lambda fn: lognContinue('getNearestAccumulateFile(): {0}'.format(fn), fn)
 	  , fileOfLatestDate
 	  , partial(filter, lambda t: t[0] < date)
 	  , partial(map, lambda fn: (getDateFromFilename(fn), fn))
@@ -292,26 +295,6 @@ def getTradeFilesFromDirectory(inputDir):
 
 
 
-# def getInputTradeFile(inputDir):
-# 	"""
-# 	[String] inputDir => [String] input file
-
-# 	Search for the input trade file in the input directory. There should be one
-# 	and only one file with the name starting with "11490" and ends with ".xls" or
-# 	".xlsx". That is the trade file we are looking for.
-# 	"""
-# 	return compose(
-# 		lambda fn: join(inputDir, fn)
-# 	  , lambda files: lognRaise('getInputFile(): too many trade files') \
-# 	  					if len(files) > 1 else \
-# 	  					lognRaise('getInputFile(): no trade file found') \
-# 	  					if len(files) == 0 else files[0]
-
-# 	  , getTradeFilesFromDirectory
-# 	)(inputDir)
-
-
-
 def moveTradeFiles(inputDir):
 	"""
 	[String] inputDir => [Int] 0 if successful -1 otherwise
@@ -319,10 +302,24 @@ def moveTradeFiles(inputDir):
 	Move all the trade files in the input directory to its subdirectory
 	'processed files'
 	"""
+	logger.debug('moveTradeFiles(): start')
+
+	dtString =  datetime.strftime(datetime.now(), '_%Y%m%d_%H%M%S')
+	
+	# [String] fn => [String] fn (new file name with date time string attached)
+	toNewFilename = compose(
+		lambda L: L[0] + dtString + '.' + L[1]
+	  , lambda L: lognRaise('moveTradeFiles(): invalid file name') \
+	  				if len(L) != 2 else L
+	  , lambda fn: fn.split('.')
+	  , lambda fn: lognContinue('toNewFilename(): {0}'.format(fn), fn)
+	)
+
+
 	try:
 		for file in getTradeFilesFromDirectory(inputDir):
 			shutil.move( join(inputDir, file)
-					   , join(inputDir, 'processed files'))
+					   , join(inputDir, 'processed files', toNewFilename(file)))
 
 		return 0
 
@@ -350,6 +347,13 @@ def sendNotification(subject):
 def lognRaise(msg):
 	logger.error(msg)
 	raise ValueError
+
+
+
+def lognContinue(msg, x):
+	logger.debug(msg)
+	return x
+
 
 
 
