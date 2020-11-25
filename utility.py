@@ -40,9 +40,9 @@ if not 'config' in globals():
 
 
 
-def getOutputDirectory():
+def getDataDirectory():
 	global config
-	return config['directory']['output']
+	return config['directory']['data']
 
 
 

@@ -46,7 +46,9 @@ def getDateFromLines(lines):
 	  , lambda line: line[0].split()[-1]
 	  , lambda line: lognRaise('getDateFromLines(): could not find the date line') \
 	  					if line == None else line
-	  , partial(firstOf, lambda line: len(line) > 0 and line[0].startswith('11490'))
+	  , partial( firstOf
+	  		   , lambda line: len(line) > 0 and isinstance(line[0], str) \
+	  							and	'Fundcode ON' in line[0])
 	)(lines)
 
 
@@ -78,6 +80,11 @@ def getPositionsFromLines(lines):
 
 
 
+toStringIfFloat = lambda x: \
+	str(int(x)) if isinstance(x, float) else x
+
+
+
 """
 	[Dictionary] p => [Dictionary] p
 
@@ -85,7 +92,8 @@ def getPositionsFromLines(lines):
 """
 updatePosition = lambda p: \
 	mergeDictionary( p
-				   , { 'As of Dt': datetime.strftime( fromExcelOrdinal(p['As of Dt'])
+				   , { 'Fund': toStringIfFloat(p['Fund'])
+				   	 , 'As of Dt': datetime.strftime( fromExcelOrdinal(p['As of Dt'])
 											 		, '%Y-%m-%d')
 				   	 , 'Stl Date': datetime.strftime( fromExcelOrdinal(p['Stl Date'])
 											 		, '%Y-%m-%d')

@@ -1,7 +1,7 @@
 # coding=utf-8
 
 """
-Read a Bloomberg AIM trade file, then prodeuce the below 2 files:
+Read a Bloomberg THRP trade file, then prodeuce the below 2 files:
 
 1. a trade file in CL trustee format;
 
@@ -15,7 +15,7 @@ Check the 'samples' directory for samples of the input and two output files.
 """
 
 from tradefile_11490.trade import getDatenPositions
-from tradefile_11490.utility import getOutputDirectory, getMailSender, getMailServer \
+from tradefile_11490.utility import getDataDirectory, getMailSender, getMailServer \
 									, getMailRecipients, getMailTimeout
 from clamc_datafeed.feeder import fileToLines, mergeDictionary
 from utils.iter import pop
@@ -46,10 +46,11 @@ readDatenPositions = compose(
 
 
 
-def writeTradenAccumulateFiles(inputFile, outputDir):
+def writeTradenAccumulateFiles(inputFile, portfolio, dataDirectory):
 	"""
-	[String] inputFile (11490 AIM trade file)
-	[String] outputDir (output directory)
+	[String] inputFile (AIM trade file)
+	[String] portfolio
+	[String] dataDirectory
 		=> ( [String] output trade file
 		   , [String] accumulate trade file
 		   )
@@ -60,19 +61,21 @@ def writeTradenAccumulateFiles(inputFile, outputDir):
 	"""
 	logger.debug('writeTradenAccumulateFiles(): {0}'.format(inputFile))
 
-	return compose(
-		lambda t: ( writeTrusteeTradeFile(outputDir, t[0], t[1])
-				  , writeAccumulateTradeFile(outputDir, t[0], t[1])
+	return \
+	compose(
+		lambda t: ( writeTrusteeTradeFile(dataDirectory, portfolio, t[0], t[1])
+				  , writeAccumulateTradeFile(dataDirectory, portfolio, t[0], t[1])
 				  )
 	  , lambda t: (t[0], list(t[1]))
-	  , lambda inputFile, _: readDatenPositions(inputFile)
-	)(inputFile, outputDir)
+	  , readDatenPositions
+	)(join(dataDirectory, inputFile))
 
 
 
-def writeTrusteeTradeFile(outputDir, date, positions):
+def writeTrusteeTradeFile(outputDir, portfolio, date, positions):
 	"""
 	[String] outputDir (the directory to write the csv file)
+	[String] portfolio
 	[String] date (yyyy-mm-dd)
 	[Iterator] positions (the positions from the trade file) 
 		=> [String] csv file
@@ -92,18 +95,22 @@ def writeTrusteeTradeFile(outputDir, date, positions):
 	positionToValues = lambda position: map(lambda key: position[key], headers)
 
 
-	getOutputFileName = lambda date, outputDir: \
-		join( outputDir
-			, 'Order Record of A-HK Equity ' + \
-				datetime.strftime(datetime.strptime(date, '%Y-%m-%d'), '%y%m%d') + \
-				'.csv'
-			)
+	def getOutputFileName(portfolio, date, outputDir):
+		prefix = 'Order Record of A-HK Equity ' if portfolio == '11490' \
+					else 'Order Record of A-HK Equity_BOC '
+		
+		return join( outputDir
+				   , prefix	+ datetime.strftime(datetime.strptime(date, '%Y-%m-%d'), '%y%m%d') + '.csv'
+				   )
 
 
-	getOutputRows = lambda date, positions: \
-		chain( [ ['China Life Franklin - CLT-CLI HK BR (CLASS A-HK) TRUST FUND']
-			   , ['11490 Equity FOR 11490 ON ' + \
-			   		datetime.strftime(datetime.strptime(date, '%Y-%m-%d'), '%m/%d/%y')
+	getOutputRows = lambda portfolio, date, positions: \
+		chain( [ ['China Life Franklin - CLT-CLI HK BR (CLASS A-HK) TRUST FUND' \
+					if portfolio == '11490' else \
+					'China Life Franklin - CLT-CLI HK BR (CLASS A-HK) TRUST FUND_BOC'
+				 ]
+			   , ['{0} Equity FOR {0} ON '.format(portfolio) \
+			   		+ datetime.strftime(datetime.strptime(date, '%Y-%m-%d'), '%m/%d/%y')
 			   	 ]
 			   , ['']	# an empty row
 			   , headers
@@ -112,16 +119,17 @@ def writeTrusteeTradeFile(outputDir, date, positions):
 			 )
 
 
-	return writeCsv( getOutputFileName(date, outputDir)
-				   , getOutputRows(date, positions)
+	return writeCsv( getOutputFileName(portfolio, date, outputDir)
+				   , getOutputRows(portfolio, date, positions)
 				   , delimiter=','
 				   )
 
 
 
-def writeAccumulateTradeFile(outputDir, date, positions):
+def writeAccumulateTradeFile(outputDir, portfolio, date, positions):
 	"""
 	[String] outputDir (the directory to write the csv file)
+	[String] portfolio
 	[String] date (yyyy-mm-dd)
 	[Iterator] positions (the positions from the trade file) 
 		=> [String] csv file
@@ -132,20 +140,21 @@ def writeAccumulateTradeFile(outputDir, date, positions):
 	Here we assume that accumulated trade files of previous days are also located
 	on the outputDir.
 	"""
+	prefix = 'Equities_' if portfolio == '11490' else 'Equities_BOC_'
 	outputFile = join( outputDir
-					 , 'Equities_' + datetime.strftime(datetime.strptime(date, '%Y-%m-%d'), '%d%m%Y') + '.csv'
+					 , prefix + datetime.strftime(datetime.strptime(date, '%Y-%m-%d'), '%d%m%Y') + '.csv'
 					 )
 
-	shutil.copyfile( getNearestAccumulateFile(outputDir, date)
+	shutil.copyfile( getNearestAccumulateFile(outputDir, portfolio, date)
 				   , outputFile
 				   )
 
 
 	toNewPostion = lambda position: mergeDictionary( 
 		position
-	  , { 'FundName': 'CLT-CLI HK BR (CLASS A-HK) Trust Fund' \
-	  					if position['Fund'].startswith('11490') else \
-	  					lognRaise('toNewPostion(): invalid fund name {0}'.format(position['Fund']))
+	  , { 'FundName': 'CLT-CLI HK BR (CLASS A-HK) Trust Fund' if position['Fund'].startswith('11490') \
+	  					else 'CLT-CLI HK BR (CLASS A-HK) Trust Fund_BOC' if position['Fund'].startswith('11500') \
+	  					else lognRaise('toNewPostion(): invalid fund name {0}'.format(position['Fund']))
 		, '': ''
 		, 'BuySell': 'Buy' if position['B/S'] == 'B' else 'Sell'
 		}
@@ -174,17 +183,18 @@ def writeAccumulateTradeFile(outputDir, date, positions):
 
 
 
-def getNearestAccumulateFile(outputDir, date):
+def getNearestAccumulateFile(outputDir, portfolio, date):
 	"""
 	[String] outputDir,
+	[String] portfolio,
 	[String] date (yyyy-mm-dd)
 		=> [String] file
 
 	Search for all files in the output dir, then:
 
-	1) Find all files that begins with 'Equities' (accumulate trade files)
-	2) Take out those whose date is equal or equal to the date
-	3) Sort the remaining files by date, find the file with the latest date.
+	1) Find all the accumulate trade files for the portfolio; 
+	2) Find those whose date is less than the date;
+	3) Find the file with the latest date.
 	4) Return the file name with full path.
 	"""
 	logger.debug('getNearestAccumulateFile(): start')
@@ -196,7 +206,9 @@ def getNearestAccumulateFile(outputDir, date):
 	  , lambda fn: fn.split('.')[0]
 	)
 
-	isAccumulateTradeFile = lambda fn: fn.startswith('Equities_') and fn.endswith('.csv')
+	isAccumulateTradeFile = lambda fn: \
+		fn.startswith('Equities_BOC_') if portfolio == '11500' \
+		else fn.startswith('Equities_') and not fn.startswith('Equities_BOC_')
 
 	fileOfLatestDate = lambda filesWithDate: max(filesWithDate, key=lambda t: t[0])[1]
 
@@ -280,51 +292,44 @@ def convertAccumulateExcelToCSV(file):
 
 
 
-def getTradeFilesFromDirectory(inputDir):
+"""
+	[String] inputDir, [String] portfolio 
+		=> [String] trade files for the portfolio
+"""
+getTradeFilesFromDirectory = lambda inputDir, portfolio: \
+compose(
+	list
+  , partial(filter, lambda fn: fn in [portfolio+'_1.xls', portfolio+'_1.xlsx'])
+  , getFiles
+)(inputDir)
+
+
+
+def moveTradeFile(file, inputDir):
 	"""
-		[String] inputDir => [List] trade files in that directory (without path)
-	"""
-	isTradeFile = lambda fn: fn.startswith('11490') and \
-								(fn.endswith('xls') or fn.endswith('xlsx'))
+	[String] file, [String] inputDir 
+		=> [Int] 0 if successful
 
-	return compose(
-		list
-	  , partial(filter, isTradeFile)
-	  , getFiles
-	)(inputDir)
-
-
-
-def moveTradeFiles(inputDir):
-	"""
-	[String] inputDir => [Int] 0 if successful -1 otherwise
-
-	Move all the trade files in the input directory to its subdirectory
+	Side effect: Move file in the input directory to its subdirectory
 	'processed files'
 	"""
-	logger.debug('moveTradeFiles(): start')
+	logger.debug('moveTradeFile(): start')
 
 	dtString =  datetime.strftime(datetime.now(), '_%Y%m%d_%H%M%S')
 	
 	# [String] fn => [String] fn (new file name with date time string attached)
 	toNewFilename = compose(
 		lambda L: L[0] + dtString + '.' + L[1]
-	  , lambda L: lognRaise('moveTradeFiles(): invalid file name') \
+	  , lambda L: lognRaise('moveTradeFile(): invalid file name') \
 	  				if len(L) != 2 else L
 	  , lambda fn: fn.split('.')
 	  , lambda fn: lognContinue('toNewFilename(): {0}'.format(fn), fn)
 	)
 
+	shutil.move( join(inputDir, file)
+			   , join(inputDir, 'processed files', toNewFilename(file)))
 
-	try:
-		for file in getTradeFilesFromDirectory(inputDir):
-			shutil.move( join(inputDir, file)
-					   , join(inputDir, 'processed files', toNewFilename(file)))
-
-		return 0
-
-	except:
-		return -1
+	return 0
 
 
 
@@ -357,34 +362,49 @@ def lognContinue(msg, x):
 
 
 
-
 if __name__ == '__main__':
 	import logging.config
 	logging.config.fileConfig('logging.config', disable_existing_loggers=False)
 
-	inputFiles = getTradeFilesFromDirectory(getOutputDirectory())
-	if inputFiles == []:
-		logger.debug('__main__: No input trade file found')
+	import argparse
+	parser = argparse.ArgumentParser(description='Process CL Trustee THRP File')
+	parser.add_argument( 'portfolio', metavar='portfolio', type=str
+					   , help='for which portfolio')
+
+	"""
+		To convert 11490 trade file, do
+
+		$python main.py 11490
+
+		To convert 11500 trade file, do
+
+		$python main.py 11500
+	"""
+	portfolio = parser.parse_args().portfolio
+	files = getTradeFilesFromDirectory(getDataDirectory(), portfolio)
+
+	import sys
+	if not portfolio in ['11490', '11500']:
+		logger.error('invalid portfolio code: {0}'.format(portfolio))
+		sys.exit(1)
+
+	elif len(files) == 0:
+		logger.debug('no input file found for {0}'.format(portfolio))
 		sys.exit(0)
 
-
-	if len(inputFiles) > 1:
-		logger.error('__main__: Too many input trade files found')
+	elif len(files) > 1:
+		logger.error('{0} files found for {1}'.format(len(files), portfolio))
 		sys.exit(1)
+	
+	else:
+		inputFile = files[0]
 
 
 	try:
-		writeTradenAccumulateFiles( join(getOutputDirectory(), inputFiles[0])
-								  , getOutputDirectory())
-		sendNotification('Successfully performed CL trustee trade conversion')
+		writeTradenAccumulateFiles(inputFile, portfolio, getDataDirectory())
+		moveTradeFile(inputFile, getDataDirectory())
+		sendNotification('Successfully performed CL trustee {0} trade conversion'.format(portfolio))
 
 	except:
 		logger.exception('__main__')
-		sendNotification('Error occurred in performing CL trustee trade conversion')
-
-	finally:
-		moveTradeFiles(getOutputDirectory())
-
-	# Convert an accumulate excel trade file to csv
-	# file = join(getOutputDirectory(), 'Equities_19052020.xlsx')
-	# print(convertAccumulateExcelToCSV(file))
+		sendNotification('Error occurred in performing CL trustee {0} trade conversion'.format(portfolio))

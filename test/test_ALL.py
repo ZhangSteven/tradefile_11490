@@ -18,7 +18,7 @@ class TestAll(unittest2.TestCase):
 
 
 	def testGetDatenPositions(self):
-		file = join(getCurrentDirectory(), 'samples', '11490_1_20200515.xlsx')
+		file = join(getCurrentDirectory(), 'samples', '11490_1.xlsx')
 		date, positions = readDatenPositions(file)
 		self.assertEqual('2020-05-15', date)
 		positions = list(positions)
@@ -28,10 +28,25 @@ class TestAll(unittest2.TestCase):
 
 
 
+	def testGetDatenPositions2(self):
+		file = join(getCurrentDirectory(), 'samples', '11500_1.xlsx')
+		date, positions = readDatenPositions(file)
+		self.assertEqual('2020-05-22', date)
+		positions = list(positions)
+		self.assertEqual(8, len(positions))
+		p = positions[0]
+		self.assertEqual('11500', p['Fund'])
+		self.assertEqual('2020-05-22', p['As of Dt'])
+
+
+
 	def testGetNearestAccumulateFile(self):
 		outputDir = join(getCurrentDirectory(), 'samples')
 		self.assertEqual( join(outputDir, 'Equities_13052020.csv')
-						, getNearestAccumulateFile(outputDir, '2020-05-15'))
+						, getNearestAccumulateFile(outputDir, '11490', '2020-05-15'))
+
+		self.assertEqual( join(outputDir, 'Equities_BOC_14052020.csv')
+						, getNearestAccumulateFile(outputDir, '11500', '2020-05-18'))
 
 
 
