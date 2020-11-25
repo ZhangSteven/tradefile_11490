@@ -5,7 +5,7 @@ Read a Bloomberg AIM trade file, get its date and all the positions (trades).
 
 """
 from clamc_datafeed.feeder import mergeDictionary
-from utils.iter import firstOf
+from utils.iter import firstOf, pop
 from utils.utility import fromExcelOrdinal
 from toolz.functoolz import compose
 from functools import partial
@@ -36,19 +36,15 @@ def getDateFromLines(lines):
 	"""
 	[Iterable] lines => [String] date (yyyy-mm-dd)
 
-	Search for the line that contains the date, then extract the date from it.
+	Read date from the second line.
 	"""
-	convertDate = lambda s: datetime.strftime( datetime.strptime(s, '%m/%d/%y')
-											 , '%Y-%m-%d')
+	pop(lines)	# skip the first line
 
 	return compose(
-		convertDate
+		lambda s: datetime.strftime( datetime.strptime(s, '%m/%d/%y')
+								   , '%Y-%m-%d')
 	  , lambda line: line[0].split()[-1]
-	  , lambda line: lognRaise('getDateFromLines(): could not find the date line') \
-	  					if line == None else line
-	  , partial( firstOf
-	  		   , lambda line: len(line) > 0 and isinstance(line[0], str) \
-	  							and	'Fundcode ON' in line[0])
+	  , pop
 	)(lines)
 
 
