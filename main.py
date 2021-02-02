@@ -97,7 +97,8 @@ def writeTrusteeTradeFile(outputDir, portfolio, date, positions):
 
 	def getOutputFileName(portfolio, date, outputDir):
 		prefix = 'Order Record of A-HK Equity ' if portfolio == '11490' \
-					else 'Order Record of A-HK Equity_BOC '
+					else 'Order Record of A-HK Equity_BOC ' if portfolio == '11500' \
+					else 'Order Record of A-MC Equity' # 13006
 		
 		return join( outputDir
 				   , prefix	+ datetime.strftime(datetime.strptime(date, '%Y-%m-%d'), '%y%m%d') + '.csv'
@@ -107,7 +108,9 @@ def writeTrusteeTradeFile(outputDir, portfolio, date, positions):
 	getOutputRows = lambda portfolio, date, positions: \
 		chain( [ ['China Life Franklin - CLT-CLI HK BR (CLASS A-HK) TRUST FUND' \
 					if portfolio == '11490' else \
-					'China Life Franklin - CLT-CLI HK BR (CLASS A-HK) TRUST FUND_BOC'
+					'China Life Franklin - CLT-CLI HK BR (CLASS A-HK) TRUST FUND_BOC' \
+					if portfolio == '11500' else \
+					'CLT-CLI Macau BR (Class A-MC) Trust Fund - C' #13006
 				 ]
 			   , ['{0} Equity FOR {0} ON '.format(portfolio) \
 			   		+ datetime.strftime(datetime.strptime(date, '%Y-%m-%d'), '%m/%d/%y')
@@ -140,7 +143,10 @@ def writeAccumulateTradeFile(outputDir, portfolio, date, positions):
 	Here we assume that accumulated trade files of previous days are also located
 	on the outputDir.
 	"""
-	prefix = 'Equities_' if portfolio == '11490' else 'Equities_BOC_'
+	prefix = 'Equities_' if portfolio == '11490' \
+				else 'Equities_BOC_' if portfolio == '11500' \
+				else 'Equities_A-MC_' # 13006
+
 	outputFile = join( outputDir
 					 , prefix + datetime.strftime(datetime.strptime(date, '%Y-%m-%d'), '%d%m%Y') + '.csv'
 					 )
@@ -154,6 +160,7 @@ def writeAccumulateTradeFile(outputDir, portfolio, date, positions):
 		position
 	  , { 'FundName': 'CLT-CLI HK BR (CLASS A-HK) Trust Fund' if position['Fund'].startswith('11490') \
 	  					else 'CLT-CLI HK BR (CLASS A-HK) Trust Fund_BOC' if position['Fund'].startswith('11500') \
+	  					else 'CLT-CLI Macau BR (Class A-MC) Trust Fund - C' if position['Fund'].startswith('13006') \
 	  					else lognRaise('toNewPostion(): invalid fund name {0}'.format(position['Fund']))
 		, '': ''
 		, 'BuySell': 'Buy' if position['B/S'] == 'B' else 'Sell'
@@ -208,7 +215,8 @@ def getNearestAccumulateFile(outputDir, portfolio, date):
 
 	isAccumulateTradeFile = lambda fn: \
 		fn.startswith('Equities_BOC_') if portfolio == '11500' \
-		else fn.startswith('Equities_') and not fn.startswith('Equities_BOC_')
+		else fn.startswith('Equities_') and not fn.startswith('Equities_BOC_') if portfolio == '11490' \
+		else fn.startswith('Equities_A-MC_')
 
 	fileOfLatestDate = lambda filesWithDate: max(filesWithDate, key=lambda t: t[0])[1]
 
@@ -372,19 +380,19 @@ if __name__ == '__main__':
 					   , help='for which portfolio')
 
 	"""
-		To convert 11490 trade file, do
+		Convert a trade file, do
+
+		$python main.py <portfolio code>
+
+		E.g., convert 11490 trade file, do
 
 		$python main.py 11490
-
-		To convert 11500 trade file, do
-
-		$python main.py 11500
 	"""
 	portfolio = parser.parse_args().portfolio
 	files = getTradeFilesFromDirectory(getDataDirectory(), portfolio)
 
 	import sys
-	if not portfolio in ['11490', '11500']:
+	if not portfolio in ('11490', '11500', '13006'):
 		logger.error('invalid portfolio code: {0}'.format(portfolio))
 		sys.exit(1)
 
