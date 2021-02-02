@@ -98,7 +98,7 @@ def writeTrusteeTradeFile(outputDir, portfolio, date, positions):
 	def getOutputFileName(portfolio, date, outputDir):
 		prefix = 'Order Record of A-HK Equity ' if portfolio == '11490' \
 					else 'Order Record of A-HK Equity_BOC ' if portfolio == '11500' \
-					else 'Order Record of A-MC Equity' # 13006
+					else 'Order Record of A-MC-P Equity' # 13006
 		
 		return join( outputDir
 				   , prefix	+ datetime.strftime(datetime.strptime(date, '%Y-%m-%d'), '%y%m%d') + '.csv'
@@ -110,7 +110,7 @@ def writeTrusteeTradeFile(outputDir, portfolio, date, positions):
 					if portfolio == '11490' else \
 					'China Life Franklin - CLT-CLI HK BR (CLASS A-HK) TRUST FUND_BOC' \
 					if portfolio == '11500' else \
-					'CLT-CLI Macau BR (Class A-MC) Trust Fund - C' #13006
+					'CLT-CLI Macau BR (Class A-MC) Trust Fund-Par' #13006
 				 ]
 			   , ['{0} Equity FOR {0} ON '.format(portfolio) \
 			   		+ datetime.strftime(datetime.strptime(date, '%Y-%m-%d'), '%m/%d/%y')
@@ -118,7 +118,9 @@ def writeTrusteeTradeFile(outputDir, portfolio, date, positions):
 			   , ['']	# an empty row
 			   , headers
 			   ]
-			 , map(positionToValues, map(updatePosition, positions))
+			 , map( positionToValues
+			 	  , map( updatePosition
+			 	  	   , filter(lambda p: p['Fund'].startswith(portfolio), positions)))
 			 )
 
 
@@ -145,7 +147,7 @@ def writeAccumulateTradeFile(outputDir, portfolio, date, positions):
 	"""
 	prefix = 'Equities_' if portfolio == '11490' \
 				else 'Equities_BOC_' if portfolio == '11500' \
-				else 'Equities_A-MC_' # 13006
+				else 'Equities_A-MC-P_' # 13006
 
 	outputFile = join( outputDir
 					 , prefix + datetime.strftime(datetime.strptime(date, '%Y-%m-%d'), '%d%m%Y') + '.csv'
@@ -160,7 +162,7 @@ def writeAccumulateTradeFile(outputDir, portfolio, date, positions):
 		position
 	  , { 'FundName': 'CLT-CLI HK BR (CLASS A-HK) Trust Fund' if position['Fund'].startswith('11490') \
 	  					else 'CLT-CLI HK BR (CLASS A-HK) Trust Fund_BOC' if position['Fund'].startswith('11500') \
-	  					else 'CLT-CLI Macau BR (Class A-MC) Trust Fund - C' if position['Fund'].startswith('13006') \
+	  					else 'CLT-CLI Macau BR (Class A-MC) Trust Fund-Par' if position['Fund'].startswith('13006') \
 	  					else lognRaise('toNewPostion(): invalid fund name {0}'.format(position['Fund']))
 		, '': ''
 		, 'BuySell': 'Buy' if position['B/S'] == 'B' else 'Sell'
@@ -180,7 +182,8 @@ def writeAccumulateTradeFile(outputDir, portfolio, date, positions):
 	  , partial(map, lambda values: ','.join(values))
 	  , partial(map, lambda values: map(str, values))
 	  , partial(map, positionToValues)
-	  , partial(map, toNewPostion) 
+	  , partial(map, toNewPostion)
+	  , partial(filter, lambda p: p['Fund'].startswith(portfolio))
 	)
 
 
@@ -216,7 +219,7 @@ def getNearestAccumulateFile(outputDir, portfolio, date):
 	isAccumulateTradeFile = lambda fn: \
 		fn.startswith('Equities_BOC_') if portfolio == '11500' \
 		else fn.startswith('Equities_') and not fn.startswith('Equities_BOC_') if portfolio == '11490' \
-		else fn.startswith('Equities_A-MC_')
+		else fn.startswith('Equities_A-MC-P_') # 13006
 
 	fileOfLatestDate = lambda filesWithDate: max(filesWithDate, key=lambda t: t[0])[1]
 
