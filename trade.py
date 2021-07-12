@@ -41,7 +41,7 @@ def getDateFromLines(lines):
 	pop(lines)	# skip the first line
 
 	return compose(
-		lambda s: datetime.strftime( datetime.strptime(s, '%m/%d/%y')
+		lambda s: datetime.strftime( datetime.strptime(s, '%d/%m/%y')
 								   , '%Y-%m-%d')
 	  , lambda line: line[0].split()[-1]
 	  , pop
@@ -54,7 +54,7 @@ def getPositionsFromLines(lines):
 	[Iterator] lines => [Iterator] positions
 	"""
 	getHeaderLine = lambda lines: \
-		firstOf(lambda line: len(line) > 0 and line[0] == 'Fund', lines)
+		firstOf(lambda line: len(line) > 0 and line[0] == 'Trader Name', lines)
 
 
 	getHeaderFromLine = compose(
@@ -88,13 +88,19 @@ toStringIfFloat = lambda x: \
 """
 updatePosition = lambda p: \
 	mergeDictionary( p
-				   , { 'Fund': toStringIfFloat(p['Fund'])
-				   	 , 'As of Dt': datetime.strftime( fromExcelOrdinal(p['As of Dt'])
+				   , { 'Fund': toStringIfFloat(p['Trader Name'])
+				     , 'Ticker & Exc': p['Ticker and Exchange Code']
+				     , 'ISIN': p['ISIN Number']
+				     , 'B/S': p['Buy/Sell']
+				     , 'Amount Pennies': p['Amount (Pennies)']
+				     , 'Price': p['Trade price']
+				     , 'Settle Amount': p['Settlement Total in Settlemen']
+				   	 , 'As of Dt': datetime.strftime( fromExcelOrdinal(p['As of Date'])
 											 		, '%Y-%m-%d')
-				   	 , 'Stl Date': datetime.strftime( fromExcelOrdinal(p['Stl Date'])
+				   	 , 'Stl Date': datetime.strftime( fromExcelOrdinal(p['Settlement Date'])
 											 		, '%Y-%m-%d')
-				   	 , 'L1 Tag Nm': 'Trading' if p['L1 Tag Nm'] == 'AFS' and p['Fund'] == '11490-B' \
-				   	 				else p['L1 Tag Nm']
+				   	 , 'L1 Tag Nm': 'Trading' if p['Level 1 Tag Name'] == 'AFS' and p['Trader Name'] == '11490-B' \
+				   	 				else p['Level 1 Tag Name']
 				   	 }
 				   )
 
