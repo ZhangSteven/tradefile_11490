@@ -107,6 +107,7 @@ updatePosition = lambda p: \
 				   	 , 'Stl Date': datetime.strftime( fromExcelOrdinal(p['Settlement Date'])
 											 		, '%Y-%m-%d')
 				   	 , 'Accr Int': p['Accrued Interest']
+				   	 , 'FACC Long Name': p['Firm Account Long Name']
 				   	 , 'L1 Tag Nm': 'Trading' if p['Level 1 Tag Name'] == 'AFS' and p['Trader Name'] == '11490-B' \
 				   	 				else p['Level 1 Tag Name']
 				   	 }

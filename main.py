@@ -84,7 +84,7 @@ def writeTrusteeTradeFile(outputDir, portfolio, date, positions):
 	trustee trade file.
 	"""
 	updatePosition = lambda p: \
-		mergeDictionary(p, {'Broker Long Name': p['Firm Account Long Name']})
+		mergeDictionary(p, {'Broker Long Name': p['FACC Long Name']})
 
 	headers = [ 'Fund', 'Ticker & Exc', 'ISIN',	'Shrt Name', 'B/S',	'Yield'
 			  ,	'As of Dt',	'Stl Date',	'Amount Pennies', 'Price', 'Bkr Comm'
