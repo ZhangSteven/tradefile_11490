@@ -91,19 +91,26 @@ updatePosition = lambda p: \
 				   , { 'Fund': toStringIfFloat(p['Trader Name'])
 				     , 'Ticker & Exc': p['Ticker and Exchange Code']
 				     , 'ISIN': p['ISIN Number']
+				     , 'Shrt Name': p['Short Name']
+				     , 'Crcy': p['Currency']
 				     , 'B/S': p['Buy/Sell']
 				     , 'Amount Pennies': p['Amount (Pennies)']
 				     , 'Price': p['Trade price']
 				     , 'Settle Amount': p['Settlement Total in Settlemen']
+				     , 'Bkr Comm': p['Transaction Cost 1 Amount']
+				     , 'Stamp Duty': p['Transaction Cost 2 Amount']
+				     , 'Exch Fee': p['Transaction Cost 3 Amount']
+				     , 'Trans. Levy': p['Transaction Cost 4 Amount']
+				     , 'Misc Fee': p['Transaction Cost 5 Amount']
 				   	 , 'As of Dt': datetime.strftime( fromExcelOrdinal(p['As of Date'])
 											 		, '%Y-%m-%d')
 				   	 , 'Stl Date': datetime.strftime( fromExcelOrdinal(p['Settlement Date'])
 											 		, '%Y-%m-%d')
+				   	 , 'Accr Int': p['Accrued Interest']
 				   	 , 'L1 Tag Nm': 'Trading' if p['Level 1 Tag Name'] == 'AFS' and p['Trader Name'] == '11490-B' \
 				   	 				else p['Level 1 Tag Name']
 				   	 }
 				   )
-
 
 
 
